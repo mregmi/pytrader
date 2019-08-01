@@ -26,6 +26,7 @@ class TDTrader:
         self.newday = True
 
     def do_refresh_token(self):
+        print('Refreshing access token. it will overwrite auth json file')
         headers = { 'Content-Type': 'application/x-www-form-urlencoded' }
         data = { 'grant_type': 'refresh_token', 'access_type': 'offline',
             'refresh_token': self.refresh_token,
@@ -47,7 +48,6 @@ class TDTrader:
             acc = self.client.accounts()
         except Exception as e:
             print(e)
-            print('Refreshing access token. it will overwrite auth json file')
             self.do_refresh_token()
             acc = self.client.accounts()
         return acc
@@ -57,7 +57,6 @@ class TDTrader:
             acc = self.client.quoteDF(ticker)
         except Exception as e:
             print(e)
-            print('Refreshing access token. it will overwrite auth json file')
             self.do_refresh_token()
             acc = self.client.quoteDF(ticker)
         return acc
@@ -117,55 +116,87 @@ class TDTrader:
         self.bought = True
         print(dt, 'BUY ', self.nstocks, price)
 
+    def isBuyCondition(self):
+        if self.bought is True:
+            return False
+
+        if self.macdHist < 0.01:
+            return False
+
+        if self.macdHist - self.lasthist > 0.01 and (self.sar - self.lastsar) > 0.02:
+            return True
+
+        return False
+
+    def isSellCondition(self):
+        if self.bought is False:
+            return False
+
+        if (self.macdHist <= 0 or (self.lasthist - self.macdHist) > 0.01) and self.sar <= self.lastsar:
+            return True
+
+        return False
+
+    def mustSell(self):
+        if self.bought is False:
+            return False
+        lossPercent = 100 * (self.price - self.buyprice) / self.price
+        if lossPercent < -0.2:
+            return True
+        return False
+
     def tradelogic(self, df, dt):
         self.add_indicators(df)
         lastdf = df.tail(1)
 
-        macdHist = lastdf.iloc[0]['MACD_hist']#getattr(lastdf, 'MACD_hist')
-        price = lastdf.iloc[0]['close']#getattr(lastdf, 'close')
-        sar = lastdf.iloc[0]['SAR']
+        self.macdHist = lastdf.iloc[0]['MACD_hist']#getattr(lastdf, 'MACD_hist')
+        self.price = lastdf.iloc[0]['close']#getattr(lastdf, 'close')
+        self.sar = lastdf.iloc[0]['SAR']
 
-        #if np.isnan(macdHist):
-        #    return
-        #print('H HU HU', price, macdHist, dt)
+        if np.isnan(self.macdHist):
+            return
 
         if  dt >= datetime(dt.year, dt.month, dt.day, 13, 00):
-            self.doClosingSell(price, dt)
+            self.doClosingSell(self.price, dt)
             return
-        if macdHist > 0.01 and macdHist > self.lasthist and (sar - self.lastsar) > 0.02 and self.bought is False:
-            self.doBuy(price, dt)
-        elif (macdHist <= 0 or macdHist < self.lasthist) and sar <= self.lastsar and self.bought is True:
-            self.doSell(price, dt)
+        if self.isBuyCondition():
+            self.doBuy(self.price, dt)
+        elif self.isSellCondition():
+            self.doSell(self.price, dt)
 
-        self.lastsar = sar
-        self.lasthist = macdHist
+        self.lastsar = self.sar
+        self.lasthist = self.macdHist
+        if self.mustSell():
+            self.doSell(self.price, dt)
 
     def backtradelogic(self, df):
         self.add_indicators(df)
         for row in df.itertuples():
-            macdHist = getattr(row, 'MACD_hist')
-            price = getattr(row, 'close')
-            sar = getattr(row, 'SAR')
+            self.macdHist = getattr(row, 'MACD_hist')
+            self.price = getattr(row, 'close')
+            self.sar = getattr(row, 'SAR')
 
-            if np.isnan(macdHist):
+            if np.isnan(self.macdHist):
                 continue
 
             dt = row[0].to_pydatetime()
             if  dt >= datetime(dt.year, dt.month, dt.day, 13, 00) and self.newday is True:
-                self.doClosingSell(price, dt)
+                self.doClosingSell(self.price, dt)
                 continue
 
             if dt < datetime(dt.year, dt.month, dt.day, 6, 30) or dt > datetime(dt.year, dt.month, dt.day, 13, 00):
                 continue
 
             self.newday = True
-            if macdHist > 0.01 and macdHist > self.lasthist and (sar - self.lastsar) > 0.02 and self.bought is False:
-                self.doBuy(price, dt)
-            elif (macdHist <= 0 or macdHist < self.lasthist) and sar <= self.lastsar and self.bought is True:
-                self.doSell(price, dt)
+            if self.isBuyCondition():
+                self.doBuy(self.price, dt)
+            elif self.isSellCondition():
+                self.doSell(self.price, dt)
 
-            self.lastsar = sar
-            self.lasthist = macdHist
+            self.lastsar = self.sar
+            self.lasthist = self.macdHist
+            if self.mustSell():
+                self.doSell(self.price, dt)
 
         if self.bought is True:
-            self.doSell(price, dt)
+            self.doSell(self.price, dt)

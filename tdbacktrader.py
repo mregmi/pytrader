@@ -8,7 +8,7 @@ if __name__ == '__main__':
 
     quote = obj.get_history('JNUG')
     print(quote.tail(10))
-    mask = (quote['datetime'] > '2019-07-17 08:00:00') & (quote['datetime'] <= '2019-07-28 23:00:00')
+    mask = (quote['datetime'] > '2019-07-17 08:00:00') & (quote['datetime'] <= '2019-07-31 23:00:00')
     quote = quote.loc[mask]
     quote.set_index('datetime', inplace=True)
 
