@@ -9,10 +9,9 @@ if __name__ == '__main__':
     obj = py.TDTrader()
     #accinfo = obj.get_account()
     quote = obj.get_quote("JNUG")
-    now = datetime.now()
-    while now.minute % 5 != 0:
-        time.sleep(0.2)
-
+    while datetime.now().minute % 5 != 0:
+        time.sleep(0.1)
+        
     print('Program is starting', datetime.now())
     tm = datetime.now() - timedelta(minutes=5)
     min = tm.minute
@@ -21,8 +20,9 @@ if __name__ == '__main__':
         dt = datetime.now()
         start = time.time()
         q1 = obj.get_quote("JNUG")
+        price = q1.iloc[0]['mark']
         quote = quote.append(q1)
-        #print(quote)
+
         if tm < dt - timedelta(minutes=5):
             quote['datetime'] = dt#pd.to_datetime(quote['quoteTimeInLong'], unit='ms')
             quote.set_index('datetime', inplace=True)
@@ -32,6 +32,11 @@ if __name__ == '__main__':
             if dt > datetime(dt.year, dt.month, dt.day, 6, 30) and dt <= datetime(dt.year, dt.month, dt.day, 13, 2):
                 obj.tradelogic(candle, dt)
             tm = dt
-        time.sleep(2 - (time.time() - start))
+        if obj.mustSell():
+            obj.doSell(price, dt)
+
+        delta = time.time() - start
+        if delta < 2:
+            time.sleep(2 - delta)
 
     print("P/L : ", 100 * obj.pl / obj.capital)

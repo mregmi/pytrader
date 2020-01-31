@@ -6,9 +6,9 @@ if __name__ == '__main__':
     obj = py.TDTrader()
     accinfo = obj.get_account()
 
-    quote = obj.get_history('JNUG')
+    quote = obj.get_history('TQQQ')
     print(quote.tail(10))
-    mask = (quote['datetime'] > '2019-07-17 08:00:00') & (quote['datetime'] <= '2019-07-31 23:00:00')
+    mask = (quote['datetime'] > '2019-07-20 08:00:00') & (quote['datetime'] <= '2019-08-01 23:00:00')
     quote = quote.loc[mask]
     quote.set_index('datetime', inplace=True)
 
