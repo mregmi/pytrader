@@ -18,6 +18,7 @@ class ScalpAlgo:
         self._symbol = symbol
         self._lot = lot
         self.qty = 0
+        self.buyprice = 0
         self.once = True
         self._bars = []
         self._l = logger.getChild(self._symbol)
@@ -50,7 +51,7 @@ class ScalpAlgo:
         return pd.Timestamp.now(tz='America/New_York')
 
     def _outofmarket(self):
-        return self._now().time() >= pd.Timestamp('15:55').time()
+        return self._now().time() >= pd.Timestamp('15:58').time()
 
     def checkup(self, position):
         # self._l.info('periodic task')
@@ -87,21 +88,25 @@ class ScalpAlgo:
         if len(self._bars) < 26:
             return
         if self._outofmarket():
+            if self._state == 'TO_SELL':
+                self._submit_sell()
+            sys.exit()
             return
         if self.once == True:
             self.once = False
             return
         
-        self.algo.CalcAlgos(self._bars)
+        trade = self._api.polygon.last_trade(self._symbol)
+        self.algo.CalcAlgos(self._bars, trade.price)
         if self._state == 'TO_BUY':
             signal = self.algo.GetBuySignal()
             if signal:
                 self._submit_buy()
+                return
         if self._state == 'TO_SELL':
-            signal = self.algo.GetSellSignal()
+            signal = self.algo.GetSellSignal(self.buyprice, trade.price)
             if signal:
                 self._submit_sell()
-        self.once = False
 
     def on_order_update(self, event, order):
         self._l.info(f'order update: {event} = {order}')
@@ -127,6 +132,7 @@ class ScalpAlgo:
                 #self._transition('TO_BUY')
         self._order = order
         self.qty = amount
+        self.buyprice = trade.price
         self._l.info(f'submitted buy {order}')
         self._transition('TO_SELL')
 

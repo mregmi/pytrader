@@ -1,5 +1,6 @@
 from tdameritrade import TDClient
 from datetime import datetime, timedelta
+from algo import TraderAlgo
 
 import json
 import requests
@@ -8,14 +9,16 @@ import numpy as np
 import talib as ta
 import time
 
+
 class TDTrader:
-    def __init__(self):
+    def __init__(self, symbol, capital):
         json_file = open('td_auth.json')
         jsondata = json.load(json_file)
         self.access_token = jsondata['access_token']
         self.refresh_token = jsondata['refresh_token']
         self.client = TDClient(self.access_token)
-        self.capital = 100000
+        self.algo = TraderAlgo(symbol, capital)
+        self.capital = capital
         self.bpower = self.capital
         self.pl = 0
         self.bought = False
@@ -108,6 +111,8 @@ class TDTrader:
         self.nstocks = 0
         self.bought = False
         print(dt, 'SELL, ', self.buyprice, price, 100 * (price - self.buyprice) / price)
+        #print(self.macdHist, self.lasthist, '\n', self.sar, self.lastsar, '\n')
+
 
     def doBuy(self, price, dt):
         self.nstocks = self.bpower / price
@@ -115,27 +120,7 @@ class TDTrader:
         self.bpower -= self.nstocks * price
         self.bought = True
         print(dt, 'BUY ', self.nstocks, price)
-
-    def isBuyCondition(self):
-        if self.bought is True:
-            return False
-
-        if self.macdHist < 0.01:
-            return False
-
-        if self.macdHist - self.lasthist > 0.01 and (self.sar - self.lastsar) > 0.02:
-            return True
-
-        return False
-
-    def isSellCondition(self):
-        if self.bought is False:
-            return False
-
-        if (self.macdHist <= 0 or (self.lasthist - self.macdHist) > 0.01) and self.sar <= self.lastsar:
-            return True
-
-        return False
+        #print(self.macdHist, self.lasthist, '\n', self.sar, self.lastsar, '\n')
 
     def mustSell(self):
         if self.bought is False:
@@ -146,57 +131,51 @@ class TDTrader:
         return False
 
     def tradelogic(self, df, dt):
-        self.add_indicators(df)
         lastdf = df.tail(1)
-
-        self.macdHist = lastdf.iloc[0]['MACD_hist']#getattr(lastdf, 'MACD_hist')
-        self.price = lastdf.iloc[0]['close']#getattr(lastdf, 'close')
-        self.sar = lastdf.iloc[0]['SAR']
-
-        if np.isnan(self.macdHist):
-            return
-
-        if  dt >= datetime(dt.year, dt.month, dt.day, 13, 00):
-            self.doClosingSell(self.price, dt)
-            return
-        if self.isBuyCondition():
+        self.price = lastdf.iloc[0]['close']
+        self.algo.CalcAlgos(df, self.price)
+        
+        if self.bought == False and self.algo.GetBuySignal():
             self.doBuy(self.price, dt)
-        elif self.isSellCondition():
+            return
+        elif self.bought == True and self.algo.GetSellSignal(self.buyprice, self.price):
             self.doSell(self.price, dt)
 
-        self.lastsar = self.sar
-        self.lasthist = self.macdHist
-        if self.mustSell():
-            self.doSell(self.price, dt)
-
-    def backtradelogic(self, df):
-        self.add_indicators(df)
-        for row in df.itertuples():
-            self.macdHist = getattr(row, 'MACD_hist')
+    def backtradelogic(self, df, symbol, capital):
+        #self.add_indicators(df)
+        td = TraderAlgo(symbol, capital)
+        for idx,row in enumerate(df.itertuples(), 1):
+            #print(idx, ' ', df[: idx])
             self.price = getattr(row, 'close')
-            self.sar = getattr(row, 'SAR')
+            td.CalcAlgos(df[:idx], self.price)
+            #self.macdHist = getattr(row, 'MACD_hist')
 
-            if np.isnan(self.macdHist):
-                continue
+            #self.sar = getattr(row, 'SAR')
+
+            #if np.isnan(self.macdHist):
+            #    continue
 
             dt = row[0].to_pydatetime()
-            if  dt >= datetime(dt.year, dt.month, dt.day, 13, 00) and self.newday is True:
+            if  dt >= datetime(dt.year, dt.month, dt.day, 17, 00) and self.newday is True:
                 self.doClosingSell(self.price, dt)
                 continue
 
-            if dt < datetime(dt.year, dt.month, dt.day, 6, 30) or dt > datetime(dt.year, dt.month, dt.day, 13, 00):
+            if dt < datetime(dt.year, dt.month, dt.day, 9, 30) or dt > datetime(dt.year, dt.month, dt.day, 17, 00):
                 continue
 
             self.newday = True
-            if self.isBuyCondition():
+            #print(idx)
+            #td.CalcAlgos(row)
+            if self.bought == False and td.GetBuySignal():
                 self.doBuy(self.price, dt)
-            elif self.isSellCondition():
+                continue
+            elif self.bought == True and td.GetSellSignal(self.buyprice, self.price):
                 self.doSell(self.price, dt)
 
-            self.lastsar = self.sar
-            self.lasthist = self.macdHist
-            if self.mustSell():
-                self.doSell(self.price, dt)
+            #self.lastsar = self.sar
+            #self.lasthist = self.macdHist
+            #if self.mustSell():
+            #    self.doSell(self.price, dt)
 
         if self.bought is True:
             self.doSell(self.price, dt)

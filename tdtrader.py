@@ -6,11 +6,12 @@ from datetime import datetime, timedelta
 import time
 
 if __name__ == '__main__':
-    obj = py.TDTrader()
+    symbol = 'TQQQ'
+    obj = py.TDTrader(symbol, 40000)
     #accinfo = obj.get_account()
-    quote = obj.get_quote("JNUG")
-    while datetime.now().minute % 5 != 0:
-        time.sleep(0.1)
+    quote = obj.get_quote(symbol)
+    #while datetime.now().minute % 5 != 0:
+    #    time.sleep(0.1)
         
     print('Program is starting', datetime.now())
     tm = datetime.now() - timedelta(minutes=5)
@@ -19,7 +20,7 @@ if __name__ == '__main__':
     while True:
         dt = datetime.now()
         start = time.time()
-        q1 = obj.get_quote("JNUG")
+        q1 = obj.get_quote(symbol)
         price = q1.iloc[0]['mark']
         quote = quote.append(q1)
 
