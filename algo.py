@@ -20,6 +20,7 @@ class TraderAlgo:
         self.sar = 0
         self.maxval = 0
         self.candles = 0
+        self.Pprofit = 0
     
     def CalcAlgos(self, df, price):
         closep = df['close'].values
@@ -51,25 +52,30 @@ class TraderAlgo:
         self.candles = self.candles + 1
         
     def GetBuySignal(self):
-        if self.macdHist < 0.02:
+        if self.macdHist < 0.01:
             return False
 
         if self.macdHist - self.lasthist > 0.02 and (self.sar - self.lastsar) > 0.02:
-            print('Buy Signal: ', self.macdHist - self.lasthist, self.sar - self.lastsar)
+            #print('Buy Signal: ', self.macdHist - self.lasthist, self.sar - self.lastsar)
             self.candles = 0
             return True
         
         return False
 
+    def GetTotalProfit(self):
+        return self.Pprofit
+    
     def GetSellSignal(self, buyprice, price):
         profit = price - buyprice
-        if  profit <= 0  or (profit < (self.maxval - price) and self.candles > 2):
-            print('Buy Price', buyprice, 'Max Value', self.maxval)
-            self.maxval = 0
-            return True
+        #if  profit <= 0  or (profit < (self.maxval - price) and self.candles > 2):
+        #    print('Buy Price', buyprice, 'Max Value', self.maxval)
+        #    self.maxval = 0
+        #    return True
         if (self.macdHist <= 0.02 or (self.lasthist - self.macdHist) > 0.01) and self.sar <= self.lastsar:
-            print('Sell Signal: ', self.macdHist - self.lasthist, self.sar - self.lastsar)
-            print('Max Value', self.maxval)
+            #print('Sell Signal: ', self.macdHist - self.lasthist, self.sar - self.lastsar)
+            self.Pprofit = self.Pprofit + (100 * (self.maxval - buyprice) / self.maxval)
+            #print('pprofit: ', self.Pprofit)
+            #print('Max Value', self.maxval, ' Potential Profit :', (100 * (self.maxval - buyprice) / self.maxval), '%\n')
             self.maxval = 0
             return True
         return False

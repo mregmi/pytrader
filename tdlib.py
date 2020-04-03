@@ -101,7 +101,8 @@ class TDTrader:
             self.nstocks = 0
             self.bought = False
             print(dt, 'SELL, ', self.buyprice, price, 100 * (price - self.buyprice) / price)
-        print(dt, " P/L :", 100 * (self.bpower - self.capital) / self.bpower, end='\n\n')
+        print(dt, " P/L :", 100 * (self.bpower - self.capital) / self.bpower, end='\n')
+        print("Total Potential Profit: ", self.algo.Pprofit, '\n')
         self.pl += self.bpower - self.capital
         self.newday = False
         self.bpower = self.capital
@@ -111,6 +112,7 @@ class TDTrader:
         self.nstocks = 0
         self.bought = False
         print(dt, 'SELL, ', self.buyprice, price, 100 * (price - self.buyprice) / price)
+       
         #print(self.macdHist, self.lasthist, '\n', self.sar, self.lastsar, '\n')
 
 
@@ -143,18 +145,17 @@ class TDTrader:
 
     def backtradelogic(self, df, symbol, capital):
         #self.add_indicators(df)
-        td = TraderAlgo(symbol, capital)
+        self.algo = TraderAlgo(symbol, capital)
         for idx,row in enumerate(df.itertuples(), 1):
             #print(idx, ' ', df[: idx])
             self.price = getattr(row, 'close')
-            td.CalcAlgos(df[:idx], self.price)
+            self.algo.CalcAlgos(df[:idx], self.price)
             #self.macdHist = getattr(row, 'MACD_hist')
 
             #self.sar = getattr(row, 'SAR')
 
             #if np.isnan(self.macdHist):
             #    continue
-
             dt = row[0].to_pydatetime()
             if  dt >= datetime(dt.year, dt.month, dt.day, 17, 00) and self.newday is True:
                 self.doClosingSell(self.price, dt)
@@ -166,10 +167,10 @@ class TDTrader:
             self.newday = True
             #print(idx)
             #td.CalcAlgos(row)
-            if self.bought == False and td.GetBuySignal():
+            if self.bought == False and self.algo.GetBuySignal():
                 self.doBuy(self.price, dt)
                 continue
-            elif self.bought == True and td.GetSellSignal(self.buyprice, self.price):
+            elif self.bought == True and self.algo.GetSellSignal(self.buyprice, self.price):
                 self.doSell(self.price, dt)
 
             #self.lastsar = self.sar
