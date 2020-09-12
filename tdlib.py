@@ -26,6 +26,7 @@ class TDTrader:
         self.nstocks = 0
         self.lastsar = 0
         self.lasthist = 0
+        self.ntrades = 0
         self.newday = True
 
     def do_refresh_token(self):
@@ -103,6 +104,7 @@ class TDTrader:
             print(dt, 'SELL, ', self.buyprice, price, 100 * (price - self.buyprice) / price)
         print(dt, " P/L :", 100 * (self.bpower - self.capital) / self.bpower, end='\n')
         print("Total Potential Profit: ", self.algo.Pprofit, '\n')
+        print('TotalTrades :', self.ntrades)
         self.pl += self.bpower - self.capital
         self.newday = False
         self.bpower = self.capital
@@ -121,6 +123,7 @@ class TDTrader:
         self.buyprice = price
         self.bpower -= self.nstocks * price
         self.bought = True
+        self.ntrades += 1
         print(dt, 'BUY ', self.nstocks, price)
         #print(self.macdHist, self.lasthist, '\n', self.sar, self.lastsar, '\n')
 
@@ -135,21 +138,21 @@ class TDTrader:
     def tradelogic(self, df, dt):
         lastdf = df.tail(1)
         self.price = lastdf.iloc[0]['close']
-        self.algo.CalcAlgos(df, self.price)
+        self.algo.CalcAlgos(df, len(df)-1, self.price)
         
-        if self.bought == False and self.algo.GetBuySignal():
+        if self.bought == False and self.algo.GetBuySignal(self.price):
             self.doBuy(self.price, dt)
             return
         elif self.bought == True and self.algo.GetSellSignal(self.buyprice, self.price):
             self.doSell(self.price, dt)
 
-    def backtradelogic(self, df, symbol, capital):
+    def backtradelogic(self, df, df5, symbol, capital):
         #self.add_indicators(df)
         self.algo = TraderAlgo(symbol, capital)
         for idx,row in enumerate(df.itertuples(), 1):
             #print(idx, ' ', df[: idx])
             self.price = getattr(row, 'close')
-            self.algo.CalcAlgos(df[:idx], self.price)
+            self.algo.CalcAlgos(df, idx, self.price)
             #self.macdHist = getattr(row, 'MACD_hist')
 
             #self.sar = getattr(row, 'SAR')
@@ -165,9 +168,9 @@ class TDTrader:
                 continue
 
             self.newday = True
-            #print(idx)
+            #print(id123x)
             #td.CalcAlgos(row)
-            if self.bought == False and self.algo.GetBuySignal():
+            if self.bought == False and self.algo.GetBuySignal(self.price):
                 self.doBuy(self.price, dt)
                 continue
             elif self.bought == True and self.algo.GetSellSignal(self.buyprice, self.price):
@@ -180,3 +183,4 @@ class TDTrader:
 
         if self.bought is True:
             self.doSell(self.price, dt)
+        #self.algo.PlotChart(df, 100, symbol)

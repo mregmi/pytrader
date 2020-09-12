@@ -26,4 +26,4 @@ if __name__ == '__main__':
     args = parser.parse_args()
     main(args.symbol,args.date,args.start,args.ticks,args.conditions)
     
-   # time.strptime("2019–12", "%Y-%m")
+   # time.strptime("2019–12", "%Y-%m")  
