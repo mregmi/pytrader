@@ -16,7 +16,7 @@ class TDTrader:
         jsondata = json.load(json_file)
         self.access_token = jsondata['access_token']
         self.refresh_token = jsondata['refresh_token']
-        self.client = TDClient(self.access_token)
+        self.client = TDClient('MTD405', self.refresh_token)
         self.algo = TraderAlgo(symbol, capital)
         self.capital = capital
         self.bpower = self.capital
@@ -131,14 +131,13 @@ class TDTrader:
         if self.bought is False:
             return False
         lossPercent = 100 * (self.price - self.buyprice) / self.price
-        if lossPercent < -0.2:
+        if lossPercent < -0.5:
+            print('Must Sell ', lossPercent)
             return True
         return False
 
-    def tradelogic(self, df, dt):
-        lastdf = df.tail(1)
-        self.price = lastdf.iloc[0]['close']
-        self.algo.CalcAlgos(df, len(df)-1, self.price)
+    def tradelogic(self, df1, df5, dt):
+        self.algo.CalcAlgos(df1, df5, self.price)
         
         if self.bought == False and self.algo.GetBuySignal(self.price):
             self.doBuy(self.price, dt)
@@ -146,40 +145,41 @@ class TDTrader:
         elif self.bought == True and self.algo.GetSellSignal(self.buyprice, self.price):
             self.doSell(self.price, dt)
 
-    def backtradelogic(self, df, df5, symbol, capital):
-        #self.add_indicators(df)
+    def backtradelogic(self, df1, df5, symbol, capital):
         self.algo = TraderAlgo(symbol, capital)
-        for idx,row in enumerate(df.itertuples(), 1):
-            #print(idx, ' ', df[: idx])
-            self.price = getattr(row, 'close')
-            self.algo.CalcAlgos(df, idx, self.price)
-            #self.macdHist = getattr(row, 'MACD_hist')
+        self.algo.CalcAlgosBacktrace(df1, df5)
+        for idx, row in enumerate(df5.itertuples(), 1):
+            for idx1, row1 in enumerate(df1.itertuples(), 1):
+                print(row)
+                self.price = getattr(row1, 'close')
+                self.algo.CalcAlgosBacktrace(df1, df5, self.price)
+                #self.macdHist = getattr(row, 'MACD_hist')
 
-            #self.sar = getattr(row, 'SAR')
+                #self.sar = getattr(row, 'SAR')
 
-            #if np.isnan(self.macdHist):
-            #    continue
-            dt = row[0].to_pydatetime()
-            if  dt >= datetime(dt.year, dt.month, dt.day, 17, 00) and self.newday is True:
-                self.doClosingSell(self.price, dt)
-                continue
+                #if np.isnan(self.macdHist):
+                #    continue
+                dt = row1[0].to_pydatetime()
+                if  dt >= datetime(dt.year, dt.month, dt.day, 17, 00) and self.newday is True:
+                    self.doClosingSell(self.price, dt)
+                    continue
 
-            if dt < datetime(dt.year, dt.month, dt.day, 9, 30) or dt > datetime(dt.year, dt.month, dt.day, 17, 00):
-                continue
+                if dt < datetime(dt.year, dt.month, dt.day, 9, 30) or dt > datetime(dt.year, dt.month, dt.day, 17, 00):
+                    continue
 
-            self.newday = True
-            #print(id123x)
-            #td.CalcAlgos(row)
-            if self.bought == False and self.algo.GetBuySignal(self.price):
-                self.doBuy(self.price, dt)
-                continue
-            elif self.bought == True and self.algo.GetSellSignal(self.buyprice, self.price):
-                self.doSell(self.price, dt)
+                self.newday = True
+                #print(id123x)
+                #td.CalcAlgos(row)
+                if self.bought == False and self.algo.GetBuySignal(self.price):
+                    self.doBuy(self.price, dt)
+                    continue
+                elif self.bought == True and self.algo.GetSellSignal(self.buyprice, self.price):
+                    self.doSell(self.price, dt)
 
-            #self.lastsar = self.sar
-            #self.lasthist = self.macdHist
-            #if self.mustSell():
-            #    self.doSell(self.price, dt)
+                #self.lastsar = self.sar
+                #self.lasthist = self.macdHist
+                #if self.mustSell():
+                #    self.doSell(self.price, dt)
 
         if self.bought is True:
             self.doSell(self.price, dt)
